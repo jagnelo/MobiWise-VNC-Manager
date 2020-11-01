@@ -1,6 +1,7 @@
 import argparse
 import os
 import numpy as np
+import subprocess
 
 
 from flask import Flask, send_file
@@ -13,6 +14,95 @@ load_dotenv(find_dotenv())
 app = Flask(__name__)
 
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+
+base_pool_size = 4
+pool = []
+base_vnc_port = 5900
+base_websockify_port = 6080
+
+
+# start a vnc server
+def start_vnc_server(display_index):
+    vnc = subprocess.Popen(["vncserver", "-noxstartup", ":%d" % display_index])
+    print("\tStarted VNC server at index %d" % display_index)
+    return vnc
+
+
+# stop a running vnc server
+def stop_vnc_server(display_index):
+    global pool
+    for i in range(len(pool)):
+        if pool[i]["display_index"] == display_index:
+            vnc = pool[i]["vnc"]
+            vnc.terminate()
+            os.system("vncserver -kill :%d" % display_index)
+            pool[i]["vnc"] = None
+            print("\tStopped VNC server at index %d" % display_index)
+            return
+
+
+# create and start a vnc+websockify server pair
+def create_server_pair(display_index):
+    global pool
+    print("Starting server pair at index %d" % display_index)
+    vnc = start_vnc_server(display_index)
+    websockify = start_websockify_server(display_index)
+    pool.append({
+        "display_index": display_index,
+        "vnc": vnc,
+        "websockify": websockify,
+        "running": False
+    })
+
+
+# start a websockify server
+def start_websockify_server(display_index):
+    global base_vnc_port, base_websockify_port
+    vnc_port = base_vnc_port + display_index
+    websockify_port = base_websockify_port + display_index
+    websockify = subprocess.Popen(["websockify", "localhost:%d" % websockify_port, "localhost:%d" % vnc_port])
+    print("\tStarted Websockify server at index %d" % display_index)
+    return websockify
+
+
+# stop a running websockify server
+def stop_websockify_server(display_index):
+    global pool
+    for i in range(len(pool)):
+        if pool[i]["display_index"] == display_index:
+            websockify = pool[i]["websockify"]
+            websockify.terminate()
+            pool[i]["websockify"] = None
+            print("\tStopped Websockify server at index %d" % display_index)
+            return
+
+
+# stop and destroy a running vnc+websockify server pair
+def destroy_server_pair(display_index):
+    global pool
+    print("Stopping server pair at index %d" % display_index)
+    stop_vnc_server(display_index)
+    stop_websockify_server(display_index)
+    for i in range(len(pool)):
+        if pool[i]["display_index"] == display_index:
+            pool.pop(i)
+            return
+
+
+# initialize a pool of vnc+websockify server pairs
+def init():
+    global base_pool_size, pool
+    for i in range(base_pool_size):
+        display_index = len(pool) + 1
+        create_server_pair(display_index)
+
+
+# terminate the entire pool of running vnc+websockify server pairs
+def terminate():
+    global pool
+    for i in range(len(pool)):
+        destroy_server_pair(i+1)
 
 
 # @app.route('/api/<scenario>/<objective1>/<objective2>/view/<solution>', methods=['GET'])
@@ -76,17 +166,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 #     return {"success": True}, 200
 
 
-def init():
-    # start a pool of VNC + websockify server pairs (e.g., 20, 30, must be an even value)
-    pass
-
-
-def destroy():
-    # destroy all running VNC (vncserver -kill :*) and websockify (terminate handles to each server) servers
-    pass
-
-
 if __name__ == '__main__':
     init()
     app.run(port=8002)
-    destroy()
+    terminate()
