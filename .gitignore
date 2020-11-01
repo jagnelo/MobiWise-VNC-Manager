@@ -114,6 +114,10 @@ venv.bak/
 .spyderproject
 .spyproject
 
+# If you are using PyCharm #
+.idea
+*.iws /out/
+
 # Rope project settings
 .ropeproject
 
