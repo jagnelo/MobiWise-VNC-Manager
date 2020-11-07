@@ -1,19 +1,21 @@
 import os
 import subprocess
-
 from datetime import datetime
 from enum import Enum
+
+from dotenv import load_dotenv, find_dotenv
 from flask import Flask
 from flask_cors import CORS
-from dotenv import load_dotenv, find_dotenv
-
+from flask_sockets import Sockets
+from gevent import pywsgi
+from geventwebsocket.handler import WebSocketHandler
 
 load_dotenv(find_dotenv())
 
 app = Flask(__name__)
+sockets = Sockets(app)
 
 CORS(app, resources={r"/api/*": {"origins": "*"}})
-
 
 base_pool_size = 4
 pool = {}
@@ -117,7 +119,25 @@ def terminate():
         destroy_server_pair(display_index)
 
 
+@app.route('/')
+def hello():
+    return 'Hello World!'
+
+
+@sockets.route('/echo')
+def echo_socket(ws):
+    while not ws.closed:
+        message = ws.receive()
+        print(message)
+        ws.send(message)
+
+
 if __name__ == '__main__':
     init()
-    app.run(port=8002)
+    # app.run(port=8002)
+    try:
+        server = pywsgi.WSGIServer(('', 8002), app, handler_class=WebSocketHandler)
+        server.serve_forever()
+    except BaseException as e:
+        print("Error: ", e)
     terminate()
