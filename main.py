@@ -228,10 +228,10 @@ def check_pool_state():
     elif count_serving < get_reduction_threshold() and len(pool) > pool_base_size:
         reduce_pool_size()
         size_changed = True
-    # if size_changed:
-    if len(pool) > pool_base_size:
-        print("Next reduction at %d serving instances" % get_reduction_threshold())
-    print("Next expansion at %d serving instances" % get_expansion_threshold())
+    if size_changed:
+        if len(pool) > pool_base_size:
+            print("Next reduction at %d serving instances" % get_reduction_threshold())
+        print("Next expansion at %d serving instances" % get_expansion_threshold())
 
 
 # initialize a pool of vnc+websockify server pairs
@@ -285,46 +285,7 @@ def vnc_discard(id):
     return {"success": True}, 200
 
 
-# @sockets.route('/server')
-# def echo_socket(proxy_ws):
-#     while not proxy_ws.closed:
-#         proxy_message = proxy_ws.receive()
-#         if proxy_message:
-#             # print("Proxy said: ", proxy_message)
-#             proxy_ws.send("Roger that")
-#         else:
-#             print("Proxy closed the socket")
-#             proxy_ws.close()
-
-
-# @sockets.route('/proxy')
-# # def echo_socket(client_ws):
-# #     global pool
-# #     display_index = request_server_pair()
-# #     server_pair = pool[display_index]
-# #     server_ws = websocket.create_connection("ws://localhost:%d/websockify" % server_pair["websockify_port"])
-# #     while not client_ws.closed:
-# #         client_msg = client_ws.receive()
-# #         if client_msg:
-# #             print("Client said: ", client_msg)
-# #             server_ws.send(client_msg)
-# #             server_msg = server_ws.recv()
-# #             print("Server said: ", server_msg)
-# #             client_ws.send(server_msg)
-# #         else:
-# #             print("Client closed the socket")
-# #     client_ws.close()
-# #     server_ws.close()
-# #     discard_server_pair(display_index)
-# #     websockify.
-
-
 if __name__ == '__main__':
     init()
     app.run(port=8002)
-    # try:
-    #     server = pywsgi.WSGIServer(('', 8002), app, handler_class=WebSocketHandler)
-    #     server.serve_forever()
-    # except KeyboardInterrupt as e:
-    #     print("Error: ", e)
     terminate()
