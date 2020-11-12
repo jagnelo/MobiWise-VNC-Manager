@@ -5,10 +5,11 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 
 from dotenv import load_dotenv, find_dotenv
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from flask_sockets import Sockets
 from apscheduler.schedulers.background import BackgroundScheduler
+from werkzeug.utils import secure_filename
 
 load_dotenv(find_dotenv())
 
@@ -255,12 +256,23 @@ def terminate():
     print("Server stopped")
 
 
-@app.route("/api/vnc/request", methods=["GET"])
+# run a system command on a given vnc display
+def run_command(display_index, command):
+    vnc_command = "DISPLAY=:%d %s" % (display_index, command)
+    return subprocess.Popen(vnc_command.split(" "))
+
+
+@app.route("/api/vnc/request", methods=["POST"])
 def vnc_request():
     global pool, heartbeat_secs
     display_index = request_server_pair()
     server_pair = pool[display_index]
     url = "ws://localhost:%d/websockify" % server_pair["websockify_port"]
+
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(filename))
+
     return {
                "success": True,
                "data":
