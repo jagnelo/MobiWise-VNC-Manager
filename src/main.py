@@ -27,40 +27,40 @@ base_display_index = 1
 base_vnc_port = 5900
 base_websockify_port = 6080
 
-heartbeat_secs = 30
+heartbeat_secs = 300000
 
 scheduler = BackgroundScheduler()
 
 FILES_DIR = os.path.join("..", "files")
 
+vnc_resolution = {
+    "width": 800,
+    "height": 600
+}
+
 
 # calculates the amount of serving instances above/at which to expand the pool size by pool_expand_size
 def get_expansion_threshold():
-    global pool, pool_expand_size
     return len(pool) - (pool_expand_size // 2)
 
 
 # calculates the amount of serving instances below which to reduce the pool size by pool_expand_size
 def get_reduction_threshold():
-    global pool_expand_size
     return get_expansion_threshold() - pool_expand_size
 
 
 # calculates the vnc port based on a given display index
 def get_vnc_port(display_index):
-    global base_vnc_port
     return base_vnc_port + display_index
 
 
 # calculates the websockify port based on a given display index
 def get_websockify_port(display_index):
-    global base_websockify_port
     return base_websockify_port + display_index
 
 
 # finds an instance in the pool by its unique id, if one has been given
 def get_display_index_from_id(id):
-    global pool
     for display_index in pool:
         if pool[display_index]["id"] == id:
             return display_index
@@ -69,7 +69,6 @@ def get_display_index_from_id(id):
 
 # returns the path to the folder containing files used by a given vnc instance
 def get_files_dir(display_index):
-    global FILES_DIR
     return os.path.join(FILES_DIR, "%d" % display_index)
 
 
@@ -89,7 +88,6 @@ def clear_and_remove_dir(path):
 
 # creates a random, but unique, id for a given pool instance which is now serving
 def create_unique_id():
-    global pool
     hash = None
     unique = False
     while not unique:
@@ -104,7 +102,6 @@ def create_unique_id():
 
 # creates a unique display index for a new pool instance based on the next available index in ascending order
 def create_unique_display_index():
-    global pool, base_display_index
     display_index = base_display_index
     while display_index in pool:
         display_index += 1
@@ -113,14 +110,14 @@ def create_unique_display_index():
 
 # start a vnc server
 def start_vnc_server(display_index):
-    vnc = subprocess.Popen(["vncserver", ":%d" % display_index, "-noxstartup", "-geometry", "800x600"])
+    res = "%dx%d" % (vnc_resolution["width"], vnc_resolution["height"])
+    vnc = subprocess.Popen(["vncserver", ":%d" % display_index, "-noxstartup", "-geometry", res])
     print("Started VNC server at index %d" % display_index)
     return vnc
 
 
 # stop a running vnc server
 def stop_vnc_server(display_index):
-    global pool
     if display_index in pool:
         vnc = pool[display_index]["vnc"]
         vnc.terminate()
@@ -141,7 +138,6 @@ def start_websockify_server(display_index):
 
 # stop a running websockify server
 def stop_websockify_server(display_index):
-    global pool
     if display_index in pool:
         websockify = pool[display_index]["websockify"]
         websockify.terminate()
@@ -152,7 +148,6 @@ def stop_websockify_server(display_index):
 
 # create and start a vnc+websockify server pair
 def create_server_pair(display_index):
-    global pool
     print("Starting server pair at index %d" % display_index)
     vnc = start_vnc_server(display_index)
     websockify = start_websockify_server(display_index)
@@ -173,7 +168,6 @@ def create_server_pair(display_index):
 
 # returns the display_index of an available vnc+websockify server pair and changes its serving state
 def request_server_pair():
-    global pool
     for display_index in pool:
         if not pool[display_index]["serving"]:
             pool[display_index]["serving"] = True
@@ -190,7 +184,6 @@ def request_server_pair():
 
 # resets the serving state of a given vnc+websockify server pair and makes it available for use again
 def discard_server_pair(display_index):
-    global pool
     if pool[display_index]["serving"]:
         pool[display_index]["serving"] = False
         pool[display_index]["last_heartbeat"] = datetime.now()
@@ -204,7 +197,6 @@ def discard_server_pair(display_index):
 
 # stop and destroy a running vnc+websockify server pair
 def destroy_server_pair(display_index):
-    global pool
     print("Stopping server pair at index %d" % display_index)
     stop_vnc_server(display_index)
     stop_websockify_server(display_index)
@@ -214,7 +206,6 @@ def destroy_server_pair(display_index):
 
 # expand the size of the pool by pool_expand_size
 def expand_pool_size():
-    global pool, pool_expand_size
     old_size = len(pool)
     for i in range(pool_expand_size):
         create_server_pair(create_unique_display_index())
@@ -224,7 +215,6 @@ def expand_pool_size():
 
 # reduce the size of the pool by pool_expand_size
 def reduce_pool_size():
-    global pool, pool_expand_size
     non_serving = []
     for display_index in pool:
         server_pair = pool[display_index]
@@ -240,7 +230,6 @@ def reduce_pool_size():
 
 # used to periodically check the state of the pool and its instances and make the necessary adjustments
 def check_pool_state():
-    global pool, pool_base_size, heartbeat_secs
     acceptable_heartbeat_delta = timedelta(seconds=heartbeat_secs * 2)
     acceptable_heartbeat_delta_secs = acceptable_heartbeat_delta.total_seconds()
     for display_index in pool:
@@ -268,7 +257,6 @@ def check_pool_state():
 
 # initialize a pool of vnc+websockify server pairs
 def init():
-    global pool_base_size, pool, scheduler, FILES_DIR
     print("Starting server...")
     for i in range(pool_base_size):
         create_server_pair(create_unique_display_index())
@@ -281,7 +269,6 @@ def init():
 
 # terminate the entire pool of running vnc+websockify server pairs
 def terminate():
-    global pool, scheduler, FILES_DIR
     print("Stopping server...")
     scheduler.shutdown()
     for display_index in list(pool):
@@ -293,17 +280,16 @@ def terminate():
 
 # run a system command on a given vnc display
 def run_command(display_index, command):
-    global pool
+    command_array = [s.strip() for s in command.split(" ") if s.strip()]
     vnc_env = os.environ.copy()
     vnc_env["DISPLAY"] = ":%d" % display_index
-    process = subprocess.Popen(command.split(" "), env=vnc_env)
+    process = subprocess.Popen(command_array, env=vnc_env, cwd=get_files_dir(display_index))
     pool[display_index]["running_process"] = process
     print("Running new command on server pair at index %d (cmd = %s)" % (display_index, command))
 
 
 # stops a system command (if any) running on a given vnc display
 def stop_command(display_index):
-    global pool
     if pool[display_index]["running_process"]:
         pool[display_index]["running_process"].terminate()
         print("Stopped command running on server pair at index %d" % display_index)
@@ -312,7 +298,6 @@ def stop_command(display_index):
 
 @app.route("/api/vnc/request", methods=["POST"])
 def vnc_request():
-    global pool, heartbeat_secs
     display_index = request_server_pair()
     server_pair = pool[display_index]
     url = "ws://localhost:%d/websockify" % server_pair["websockify_port"]
@@ -324,13 +309,13 @@ def vnc_request():
     cmd = "sumo-gui"
     args = "--gui-settings-file gui-settings.xml " \
            "--additional-files additional-files.xml " \
-           "--net-file net-file.xml" \
-           " --route-files route-files.xml " \
+           "--net-file net-file.xml " \
+           "--route-files route-files.xml " \
            "--device.emissions.probability 1.0 " \
            "--emission-output.precision 6 " \
            "--collision.action warn " \
-           "--time-to-teleport -1 " \
-           "--window-size 800,600 " \
+           "--time-to-teleport -1 " + \
+           "--window-size %d,%d " % (vnc_resolution["width"], vnc_resolution["height"]) + \
            "--window-pos 0,0"
 
     run_command(display_index, "%s %s" % (cmd, args))
@@ -341,15 +326,17 @@ def vnc_request():
                    {
                        "id": server_pair["id"],
                        "vnc_url": url,
-                       "heartbeat_seconds": heartbeat_secs
+                       "heartbeat_seconds": heartbeat_secs,
+                       "vnc_resolution": vnc_resolution
                    }
            }, 200
 
 
 @app.route("/api/vnc/heartbeat/<id>", methods=["GET"])
 def vnc_heartbeat(id):
-    global pool
-    pool[get_display_index_from_id(id)]["last_heartbeat"] = datetime.now()
+    display_index = get_display_index_from_id(id)
+    pool[display_index]["last_heartbeat"] = datetime.now()
+    print("Received heartbeat from user of server pair at index %d (ID = %s)" % (display_index, id))
     return {"success": True}, 200
 
 
