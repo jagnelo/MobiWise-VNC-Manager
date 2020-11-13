@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import random
 from datetime import datetime, timedelta
@@ -27,9 +28,11 @@ base_display_index = 1
 base_vnc_port = 5900
 base_websockify_port = 6080
 
-heartbeat_secs = 30
+heartbeat_secs = 300
 
 scheduler = BackgroundScheduler()
+
+FILES_DIR = os.path.join("..", "files")
 
 
 # calculates the amount of serving instances above/at which to expand the pool size by pool_expand_size
@@ -56,13 +59,31 @@ def get_websockify_port(display_index):
     return base_websockify_port + display_index
 
 
-# finds a ninstance in the pool by its unique id, if one has been given
+# finds an instance in the pool by its unique id, if one has been given
 def get_display_index_from_id(id):
     global pool
     for display_index in pool:
         if pool[display_index]["id"] == id:
             return display_index
     return None
+
+
+# returns the path to the folder containing files used by a given vnc instance
+def get_files_dir(display_index):
+    global FILES_DIR
+    return os.path.join(FILES_DIR, "%d" % display_index)
+
+
+# creates a given directory if it does not exist
+def ensure_dir_exists(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
+# empties the contents (if any) and removes a given directory
+def clear_and_remove_dir(path):
+    if os.path.exists(path) and os.path.isdir(path):
+        shutil.rmtree(path, ignore_errors=True)
 
 
 # creates a random, but unique, id for a given pool instance which is now serving
@@ -143,7 +164,8 @@ def create_server_pair(display_index):
         "online": True,
         "serving": False,
         "created": datetime.now(),
-        "last_heartbeat": datetime.now()
+        "last_heartbeat": datetime.now(),
+        "files_path": None
     }
 
 
@@ -156,6 +178,10 @@ def request_server_pair():
             pool[display_index]["last_heartbeat"] = datetime.now()
             unique_id = create_unique_id()
             pool[display_index]["id"] = unique_id
+            path = get_files_dir(display_index)
+            clear_and_remove_dir(path)
+            ensure_dir_exists(path)
+            pool[display_index]["files_path"] = path
             print("Server pair at index %d was requested (ID = %s)" % (display_index, unique_id))
             return display_index
 
@@ -168,6 +194,8 @@ def discard_server_pair(display_index):
         pool[display_index]["last_heartbeat"] = datetime.now()
         unique_id = pool[display_index]["id"]
         pool[display_index]["id"] = None
+        clear_and_remove_dir(pool[display_index]["files_path"])
+        pool[display_index]["files_path"] = None
         print("Server pair at index %d was discarded (ID = %s)" % (display_index, unique_id))
 
 
@@ -210,7 +238,7 @@ def reduce_pool_size():
 # used to periodically check the state of the pool and its instances and make the necessary adjustments
 def check_pool_state():
     global pool, pool_base_size, heartbeat_secs
-    acceptable_heartbeat_delta = timedelta(seconds=heartbeat_secs*2)
+    acceptable_heartbeat_delta = timedelta(seconds=heartbeat_secs * 2)
     acceptable_heartbeat_delta_secs = acceptable_heartbeat_delta.total_seconds()
     for display_index in pool:
         server_pair = pool[display_index]
@@ -237,41 +265,70 @@ def check_pool_state():
 
 # initialize a pool of vnc+websockify server pairs
 def init():
-    global pool_base_size, pool, scheduler
+    global pool_base_size, pool, scheduler, FILES_DIR
     print("Starting server...")
     for i in range(pool_base_size):
         create_server_pair(create_unique_display_index())
     scheduler.add_job(check_pool_state, 'interval', seconds=10)
     scheduler.start()
+    clear_and_remove_dir(FILES_DIR)
+    ensure_dir_exists(FILES_DIR)
     print("Server started")
 
 
 # terminate the entire pool of running vnc+websockify server pairs
 def terminate():
-    global pool, scheduler
+    global pool, scheduler, FILES_DIR
     print("Stopping server...")
     scheduler.shutdown()
     for display_index in list(pool):
         destroy_server_pair(display_index)
+    clear_and_remove_dir(FILES_DIR)
     print("Server stopped")
 
 
 # run a system command on a given vnc display
-def run_command(display_index, command):
+def run_command(display_index, command, arguments):
     vnc_command = "DISPLAY=:%d %s" % (display_index, command)
-    return subprocess.Popen(vnc_command.split(" "))
+    vnc_command_arguments = arguments.split(" ")
+    print([*vnc_command.split(" "), *vnc_command_arguments])
+    return subprocess.Popen([*vnc_command.split(" "), *vnc_command_arguments])
 
 
+# "--gui-settings-file gui-settings.xml"
+# "--additional-files moreOutputInfo.xml"
+# "--net-file " + netfile
+# " --route-files " + roufile
+# "--device.emissions.probability 1.0"
+# "--emission-output.precision 6"
+# "--collision.action warn"
+# "--time-to-teleport -1"
+# "--window-size 800,600"
+# "--window-pos 0,0"
 @app.route("/api/vnc/request", methods=["POST"])
 def vnc_request():
     global pool, heartbeat_secs
     display_index = request_server_pair()
     server_pair = pool[display_index]
     url = "ws://localhost:%d/websockify" % server_pair["websockify_port"]
+    for key in ["gui-settings", "additional-files", "net-file", "route-files", "basecars-emission-by-edges-out",
+                "edge-data-out"]:
+        file = request.files[key]
+        file.save(os.path.join(get_files_dir(display_index), "%s.xml" % key))
 
-    file = request.files['file']
-    filename = secure_filename(file.filename)
-    file.save(os.path.join(filename))
+    cmd = "sumo-gui"
+    args = "--gui-settings-file gui-settings.xml " \
+           "--additional-files additional-files.xml " \
+           "--net-file net-file.xml" \
+           " --route-files route-files.xml " \
+           "--device.emissions.probability 1.0 " \
+           "--emission-output.precision 6 " \
+           "--collision.action warn " \
+           "--time-to-teleport -1 " \
+           "--window-size 800,600 " \
+           "--window-pos 0,0"
+    print(cmd, args)
+    run_command(display_index, cmd, args)
 
     return {
                "success": True,
