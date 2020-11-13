@@ -10,7 +10,6 @@ from flask import Flask, request
 from flask_cors import CORS
 from flask_sockets import Sockets
 from apscheduler.schedulers.background import BackgroundScheduler
-from werkzeug.utils import secure_filename
 
 load_dotenv(find_dotenv())
 
@@ -28,7 +27,7 @@ base_display_index = 1
 base_vnc_port = 5900
 base_websockify_port = 6080
 
-heartbeat_secs = 300
+heartbeat_secs = 30
 
 scheduler = BackgroundScheduler()
 
@@ -78,12 +77,14 @@ def get_files_dir(display_index):
 def ensure_dir_exists(path):
     if not os.path.exists(path):
         os.makedirs(path)
+        print("Created directory %s" % path)
 
 
 # empties the contents (if any) and removes a given directory
 def clear_and_remove_dir(path):
     if os.path.exists(path) and os.path.isdir(path):
         shutil.rmtree(path, ignore_errors=True)
+        print("Emptied and removed directory %s" % path)
 
 
 # creates a random, but unique, id for a given pool instance which is now serving
@@ -165,7 +166,8 @@ def create_server_pair(display_index):
         "serving": False,
         "created": datetime.now(),
         "last_heartbeat": datetime.now(),
-        "files_path": None
+        "files_path": None,
+        "running_process": None
     }
 
 
@@ -194,6 +196,7 @@ def discard_server_pair(display_index):
         pool[display_index]["last_heartbeat"] = datetime.now()
         unique_id = pool[display_index]["id"]
         pool[display_index]["id"] = None
+        stop_command(display_index)
         clear_and_remove_dir(pool[display_index]["files_path"])
         pool[display_index]["files_path"] = None
         print("Server pair at index %d was discarded (ID = %s)" % (display_index, unique_id))
@@ -282,29 +285,31 @@ def terminate():
     print("Stopping server...")
     scheduler.shutdown()
     for display_index in list(pool):
+        discard_server_pair(display_index)
         destroy_server_pair(display_index)
     clear_and_remove_dir(FILES_DIR)
     print("Server stopped")
 
 
 # run a system command on a given vnc display
-def run_command(display_index, command, arguments):
-    vnc_command = "DISPLAY=:%d %s" % (display_index, command)
-    vnc_command_arguments = arguments.split(" ")
-    print([*vnc_command.split(" "), *vnc_command_arguments])
-    return subprocess.Popen([*vnc_command.split(" "), *vnc_command_arguments])
+def run_command(display_index, command):
+    global pool
+    vnc_env = os.environ.copy()
+    vnc_env["DISPLAY"] = ":%d" % display_index
+    process = subprocess.Popen(command.split(" "), env=vnc_env)
+    pool[display_index]["running_process"] = process
+    print("Running new command on server pair at index %d (cmd = %s)" % (display_index, command))
 
 
-# "--gui-settings-file gui-settings.xml"
-# "--additional-files moreOutputInfo.xml"
-# "--net-file " + netfile
-# " --route-files " + roufile
-# "--device.emissions.probability 1.0"
-# "--emission-output.precision 6"
-# "--collision.action warn"
-# "--time-to-teleport -1"
-# "--window-size 800,600"
-# "--window-pos 0,0"
+# stops a system command (if any) running on a given vnc display
+def stop_command(display_index):
+    global pool
+    if pool[display_index]["running_process"]:
+        pool[display_index]["running_process"].terminate()
+        print("Stopped command running on server pair at index %d" % display_index)
+    pool[display_index]["running_process"] = None
+
+
 @app.route("/api/vnc/request", methods=["POST"])
 def vnc_request():
     global pool, heartbeat_secs
@@ -327,8 +332,8 @@ def vnc_request():
            "--time-to-teleport -1 " \
            "--window-size 800,600 " \
            "--window-pos 0,0"
-    print(cmd, args)
-    run_command(display_index, cmd, args)
+
+    run_command(display_index, "%s %s" % (cmd, args))
 
     return {
                "success": True,
