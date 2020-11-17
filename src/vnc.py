@@ -3,25 +3,20 @@ import subprocess
 
 import psutil
 
+from src.globals import Globals
 from src.iserver import IServer, State
 
 
 class VNC(IServer):
-    base_display_index = 1
-    vnc_resolution = {
-        "width": 800,
-        "height": 600
-    }
-
     def __init__(self):
-        self.display_index = IServer.NA
-        self.pid = IServer.NA
-        self.port = IServer.NA
+        self.display_index = Globals.NA
+        self.pid = Globals.NA
+        self.port = Globals.NA
         self.state = State.Dead
 
     # start a vnc instance
     def start(self):
-        res = "%dx%d" % (VNC.vnc_resolution["width"], VNC.vnc_resolution["height"])
+        res = "%dx%d" % (Globals.vnc_resolution["width"], Globals.vnc_resolution["height"])
         self.display_index = VNC.get_available_display_index()
         subprocess.Popen(["vncserver", ":%d" % self.display_index, "-noxstartup", "-geometry", res])
         self.state = State.Unknown
@@ -60,6 +55,10 @@ class VNC(IServer):
             print_info = (self.display_index, old_state, self.state)
             print("Updated state of VNC server at index %d from %s to %s" % print_info)
 
+    # returns the path to the folder containing files used by this vnc instance
+    def get_files_dir(self):
+        return os.path.join(Globals.VNC_FILES_DIR, "%d" % self.display_index)
+
     # runs the "vncserver -list" command, formats its output, and returns it
     @staticmethod
     def get_vnc_server_list():
@@ -77,7 +76,7 @@ class VNC(IServer):
     # returns the next available display index, in ascending order and starting at 1
     @staticmethod
     def get_available_display_index():
-        display_index = VNC.base_display_index
+        display_index = Globals.base_display_index
         while display_index in VNC.get_vnc_server_list():
             display_index += 1
         return display_index

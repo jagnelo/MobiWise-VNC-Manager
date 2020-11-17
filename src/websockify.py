@@ -3,22 +3,19 @@ import subprocess
 
 import psutil
 
-from src import utils
+from src.globals import Globals
 from src.iserver import IServer, State
 
 
 class Websockify(IServer):
-    base_websockify_port = 6081
-
-    def __init__(self, vnc_port):
-        self.pid = IServer.NA
-        self.port = IServer.NA
+    def __init__(self, vnc_index, vnc_port):
+        self.pid = Globals.NA
+        self.port = Globals.base_websockify_port + vnc_index
         self.vnc_port = vnc_port
         self.state = State.Dead
 
     # start a websockify instance
     def start(self):
-        self.port = utils.get_available_port(Websockify.base_websockify_port)
         websockify = subprocess.Popen(["websockify", "localhost:%d" % self.port, "localhost:%d" % self.vnc_port])
         self.pid = websockify.pid
         self.state = State.Unknown
@@ -26,7 +23,7 @@ class Websockify(IServer):
 
     # stop this websockify instance
     def stop(self):
-        os.system("kill :%d" % self.pid)
+        os.system("kill %d" % self.pid)
         self.state = State.Dead
         print("Stopped Websockify server listening on port %d (PID = %d)" % (self.port, self.pid))
 

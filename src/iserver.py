@@ -9,8 +9,6 @@ class State(Enum):
 
 
 class IServer:
-    NA = -1
-
     def start(self):
         raise NotImplementedError
 

@@ -1,25 +1,7 @@
 import os
-import random
 import shutil
-import socket
 
-
-# returns True if a given local port is available, False otherwise
-def is_port_available(port):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    available = sock.connect_ex(("localhost", port)) == 0
-    sock.close()
-    return available
-
-
-# if the given port is not available, exhaustively tries different port numbers until one is available
-def get_available_port(base_port):
-    port = base_port - 1
-    available = False
-    while not available:
-        port += 1
-        available = is_port_available(port)
-    return port
+from src.globals import Globals
 
 
 # creates a given directory if it does not exist
@@ -42,4 +24,10 @@ def modify_environment(changes: dict):
     for key in changes:
         env[key] = changes[key]
     return env
+
+
+def get_new_job_id():
+    Globals.job_id += 1
+    return str(Globals.job_id)
+
 
