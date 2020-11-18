@@ -59,3 +59,4 @@ if __name__ == '__main__':
         print("Error: ", e)
         print("Killing any still-running VNC sessions...")
         utils.kill_all_vnc_sessions()
+        terminate()
