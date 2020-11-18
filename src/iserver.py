@@ -3,7 +3,7 @@ from enum import Enum
 
 class State(Enum):
     Dead = -1
-    Unknown = 0
+    Unavailable = 0
     Ready = 1
     Serving = 2
 
@@ -15,5 +15,8 @@ class IServer:
     def stop(self):
         raise NotImplementedError
 
-    def check_state(self):
+    def check_state(self) -> bool:
+        raise NotImplementedError
+
+    def describe_state(self) -> str:
         raise NotImplementedError

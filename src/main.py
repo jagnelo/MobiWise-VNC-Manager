@@ -19,6 +19,8 @@ manager = Manager()
 
 # setup
 def init():
+    print("Ensuring no VNC sessions are running on the machine...")
+    utils.kill_all_vnc_sessions()
     utils.clear_and_remove_dir(Globals.VNC_FILES_DIR)
     utils.ensure_dir_exists(Globals.VNC_FILES_DIR)
     Globals.scheduler.start()
@@ -34,7 +36,9 @@ def terminate():
 
 @app.route("/api/vnc/request", methods=["POST"])
 def vnc_request():
-    url = manager.request_server_pair(request.files)
+    source_ip = request.environ['REMOTE_ADDR']
+    source_port = request.environ['REMOTE_PORT']
+    url = manager.request_server_pair(source_ip, source_port, request.files)
 
     return {
                "success": True,
@@ -53,6 +57,5 @@ if __name__ == '__main__':
         terminate()
     except BaseException as e:
         print("Error: ", e)
-        print("Killing any still-running VNC servers...")
-        os.system("vncserver -kill :*")
-        print("All VNC servers have been terminated")
+        print("Killing any still-running VNC sessions...")
+        utils.kill_all_vnc_sessions()

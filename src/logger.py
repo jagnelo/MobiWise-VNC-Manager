@@ -6,3 +6,11 @@ def info(text: str):
 
 def error(text: str):
     print(text)
+
+
+def warn(text: str):
+    print(text)
+
+
+def debug(text: str):
+    print(text)
