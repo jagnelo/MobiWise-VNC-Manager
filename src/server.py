@@ -23,9 +23,9 @@ class Server(IServer):
         def func(job_id):
             def delayed_start():
                 if self.vnc.state == State.Dead:
-                    Globals.scheduler.remove_job(job_id)
+                    Globals.SCHEDULER.remove_job(job_id)
                 if self.vnc.state == State.Ready:
-                    Globals.scheduler.remove_job(job_id)
+                    Globals.SCHEDULER.remove_job(job_id)
                     self.websockify = Websockify(self.vnc.display_index, self.vnc.port)
                     self.websockify.start()
                     path = self.vnc.get_files_dir()
@@ -36,7 +36,7 @@ class Server(IServer):
             return delayed_start
 
         job_id = utils.get_new_job_id()
-        Globals.scheduler.add_job(func(job_id), 'interval', seconds=1, id=job_id)
+        Globals.SCHEDULER.add_job(func(job_id), 'interval', seconds=1, id=job_id)
         self.state = State.Unavailable
 
     # stop this vnc+websockify instance pair
@@ -97,7 +97,7 @@ class Server(IServer):
         path = self.vnc.get_files_dir()
         utils.ensure_dir_exists(path)
         utils.clear_dir(path)
-        for name in Globals.vnc_sumo_files:
+        for name in Globals.VNC_SUMO_FILES:
             file = files[name]
             file.save(os.path.join(path, "%s.xml" % name))
 

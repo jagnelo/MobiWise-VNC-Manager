@@ -23,14 +23,14 @@ def init():
     utils.kill_all_vnc_sessions()
     utils.clear_and_remove_dir(Globals.VNC_FILES_DIR)
     utils.ensure_dir_exists(Globals.VNC_FILES_DIR)
-    Globals.scheduler.start()
+    Globals.SCHEDULER.start()
     manager.start()
 
 
 # teardown
 def terminate():
     manager.stop()
-    Globals.scheduler.shutdown()
+    Globals.SCHEDULER.shutdown()
     utils.clear_and_remove_dir(Globals.VNC_FILES_DIR)
 
 
@@ -45,7 +45,7 @@ def vnc_request():
                "data":
                    {
                        "vnc_url": url,
-                       "vnc_resolution": Globals.vnc_resolution
+                       "vnc_resolution": Globals.VNC_RESOLUTION
                    }
            }, 200
 

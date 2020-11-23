@@ -47,8 +47,8 @@ def modify_environment(changes: dict):
 
 # returns a unique job ID to use with a job scheduler
 def get_new_job_id():
-    Globals.job_id += 1
-    return str(Globals.job_id)
+    Globals.JOB_ID += 1
+    return str(Globals.JOB_ID)
 
 
 # kill any VNC sessions that may be running

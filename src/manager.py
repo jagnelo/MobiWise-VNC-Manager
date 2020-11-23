@@ -17,16 +17,16 @@ class Manager(IServer):
     # initialize a pool of server pairs
     def start(self):
         print("Starting instance manager...")
-        for i in range(Globals.pool_base_size):
+        for i in range(Globals.POOL_BASE_SIZE):
             self.create_server()
         self.scheduler_job_id = utils.get_new_job_id()
-        Globals.scheduler.add_job(self.check_state, 'interval', seconds=2, id=self.scheduler_job_id)
+        Globals.SCHEDULER.add_job(self.check_state, 'interval', seconds=2, id=self.scheduler_job_id)
         print("Instance manager started")
 
     # terminate the pool of server pairs
     def stop(self):
         print("Stopping instance manager...")
-        Globals.scheduler.remove_job(self.scheduler_job_id)
+        Globals.SCHEDULER.remove_job(self.scheduler_job_id)
         for server_id in list(self.pool):
             self.destroy_server(server_id)
         print("Instance manager stopped")
@@ -59,7 +59,7 @@ class Manager(IServer):
                 delta_secs = self.requested[server_id].seconds_elapsed()
                 if self.pool[server_id].state == State.Serving:
                     self.requested.pop(server_id)
-                    self.pool[server_id].run_command(Globals.vnc_sumo_cmd)
+                    self.pool[server_id].run_command(Globals.VNC_SUMO_CMD)
                     print_info = (server_id, self.pool[server_id].state)
                     print("Removed server ID = %s from the requested list as its state is now %s" % print_info)
                 if self.pool[server_id].state in [State.Unavailable, State.Dead]:
@@ -67,7 +67,7 @@ class Manager(IServer):
                     self.requested.pop(server_id)
                     print_info = (server_id, self.pool[server_id].state)
                     print("Removed server ID = %s from the requested list as its state changed to %s" % print_info)
-                if delta_secs >= Globals.request_timeout_secs:
+                if delta_secs >= Globals.REQUEST_TIMEOUT_SECS:
                     self.pool[server_id].stop_command()
                     self.requested.pop(server_id)
                     print_info = (server_id, self.pool[server_id].state, delta_secs)
@@ -100,11 +100,11 @@ class Manager(IServer):
         if count_total >= self.get_expansion_threshold():
             self.expand_pool_size()
             size_changed = True
-        elif count_total < self.get_reduction_threshold() and len(self.pool) > Globals.pool_base_size:
+        elif count_total < self.get_reduction_threshold() and len(self.pool) > Globals.POOL_BASE_SIZE:
             self.reduce_pool_size()
             size_changed = True
         if size_changed:
-            if len(self.pool) > Globals.pool_base_size:
+            if len(self.pool) > Globals.POOL_BASE_SIZE:
                 print("Next reduction at %d serving instances" % self.get_reduction_threshold())
             print("Next expansion at %d serving instances" % self.get_expansion_threshold())
 
@@ -116,7 +116,7 @@ class Manager(IServer):
         for server_id in self.pool:
             if self.pool[server_id].state == State.Ready and server_id not in self.requested:
                 self.requested[server_id] = Request(server_id, source_ip, source_port)
-                print_info = (server_id, source_ip, source_port, Globals.request_timeout_secs, State.Serving)
+                print_info = (server_id, source_ip, source_port, Globals.REQUEST_TIMEOUT_SECS, State.Serving)
                 print("Server ID = %s was requested by %s:%s and will be made available again after %d seconds if its"
                       " state does not change to %s" % print_info)
                 self.pool[server_id].store_files_to_dir(files)
@@ -125,32 +125,32 @@ class Manager(IServer):
 
     # calculates the amount of serving instances above/at which to expand the pool size by pool_expand_size
     def get_expansion_threshold(self):
-        return len(self.pool) - (Globals.pool_expand_size // 2)
+        return len(self.pool) - (Globals.POOL_EXPAND_SIZE // 2)
 
     # calculates the amount of serving instances below which to reduce the pool size by pool_expand_size
     def get_reduction_threshold(self):
-        return self.get_expansion_threshold() - Globals.pool_expand_size
+        return self.get_expansion_threshold() - Globals.POOL_EXPAND_SIZE
 
     # expand the size of the pool by pool_expand_size
     def expand_pool_size(self):
         old_size = len(self.pool)
-        for i in range(Globals.pool_expand_size):
+        for i in range(Globals.POOL_EXPAND_SIZE):
             self.create_server()
         new_size = len(self.pool)
-        print("Pool was expanded by %d instances, from %d to %d" % (Globals.pool_expand_size, old_size, new_size))
+        print("Pool was expanded by %d instances, from %d to %d" % (Globals.POOL_EXPAND_SIZE, old_size, new_size))
 
     # reduce the size of the pool by pool_expand_size
     def reduce_pool_size(self):
         non_serving = [server_id for server_id in self.pool if self.pool[server_id].state != State.Serving and
                        server_id not in self.requested]
-        if len(non_serving) >= Globals.pool_expand_size:
+        if len(non_serving) >= Globals.POOL_EXPAND_SIZE:
             old_size = len(self.pool)
-            for i in range(Globals.pool_expand_size):
+            for i in range(Globals.POOL_EXPAND_SIZE):
                 self.destroy_server(non_serving[i])
             new_size = len(self.pool)
-            print("Pool was reduced by %d instances, from %d to %d" % (Globals.pool_expand_size, old_size, new_size))
+            print("Pool was reduced by %d instances, from %d to %d" % (Globals.POOL_EXPAND_SIZE, old_size, new_size))
         else:
-            print_info = (Globals.pool_expand_size, len(non_serving))
+            print_info = (Globals.POOL_EXPAND_SIZE, len(non_serving))
             print("Pool could not be reduced by %d instances as there are only %d non-serving instances" % print_info)
 
     # creates a random, but unique, id for a given pool instance which is now serving

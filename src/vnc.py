@@ -16,7 +16,7 @@ class VNC(IServer):
 
     # start a vnc instance
     def start(self):
-        res = "%dx%d" % (Globals.vnc_resolution["width"], Globals.vnc_resolution["height"])
+        res = "%dx%d" % (Globals.VNC_RESOLUTION["width"], Globals.VNC_RESOLUTION["height"])
         self.display_index = VNC.get_available_display_index()
         subprocess.Popen(["vncserver", ":%d" % self.display_index, "-noxstartup", "-geometry", res])
         self.state = State.Unavailable
@@ -86,7 +86,7 @@ class VNC(IServer):
     # returns the next available display index, in ascending order and starting at 1
     @staticmethod
     def get_available_display_index():
-        display_index = Globals.base_display_index
+        display_index = Globals.BASE_DISPLAY_INDEX
         while display_index in VNC.get_vnc_server_list():
             display_index += 1
         return display_index

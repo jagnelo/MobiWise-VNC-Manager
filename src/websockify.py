@@ -10,7 +10,7 @@ from src.iserver import IServer, State
 class Websockify(IServer):
     def __init__(self, vnc_index, vnc_port):
         self.pid = Globals.NA
-        self.port = Globals.base_websockify_port + vnc_index
+        self.port = Globals.BASE_WEBSOCKIFY_PORT + vnc_index
         self.vnc_port = vnc_port
         self.state = State.Dead
 

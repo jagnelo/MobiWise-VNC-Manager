@@ -5,27 +5,29 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 class Globals:
     VNC_FILES_DIR = os.path.join("..", "files")
-    scheduler = BackgroundScheduler()
+    SCHEDULER = BackgroundScheduler()
     NA = -1
-    job_id = NA
-    vnc_resolution = {
+    JOB_ID = NA
+    VNC_RESOLUTION = {
         "width": 800,
         "height": 600
     }
-    vnc_sumo_files = ["gui-settings", "additional-files", "net-file", "route-files", "basecars-emission-by-edges-out",
+    VNC_SUMO_FILES = ["gui-settings", "additional-files", "net-file", "route-files", "basecars-emission-by-edges-out",
                       "edge-data-out"]
-    vnc_sumo_cmd = "sumo-gui --gui-settings-file gui-settings.xml " \
+    VNC_SUMO_CMD = "sumo-gui --gui-settings-file gui-settings.xml " \
                    "--additional-files additional-files.xml " \
                    "--net-file net-file.xml " \
                    "--route-files route-files.xml " \
                    "--device.emissions.probability 1.0 " \
                    "--emission-output.precision 6 " \
                    "--collision.action warn " \
-                   "--time-to-teleport -1 " + \
-                   "--window-size %d,%d " % (vnc_resolution["width"], vnc_resolution["height"]) + \
-                   "--window-pos 0,0"
-    base_websockify_port = 6080
-    base_display_index = 1
-    pool_base_size = 10
-    pool_expand_size = pool_base_size // 2
-    request_timeout_secs = 20
+                   "--time-to-teleport -1 " \
+                   "--window-size $(xdpyinfo | awk '/dimensions/{print $2}' | awk '{gsub(\"x\", \",\")} {print}') " \
+                   "--window-pos 0,0"   # \
+                   # "--window-size %d,%d " % (VNC_RESOLUTION["width"], VNC_RESOLUTION["height"]) + \
+                   # "--window-pos 0,0"
+    BASE_WEBSOCKIFY_PORT = 6080
+    BASE_DISPLAY_INDEX = 1
+    POOL_BASE_SIZE = 10
+    POOL_EXPAND_SIZE = POOL_BASE_SIZE // 2
+    REQUEST_TIMEOUT_SECS = 20
