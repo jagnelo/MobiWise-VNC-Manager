@@ -1,12 +1,10 @@
-import os
-
 from dotenv import load_dotenv, find_dotenv
 from flask import Flask, request
 from flask_cors import CORS
 
-from src import utils
-from src.globals import Globals
-from src.manager import Manager
+import utils
+from globals import Globals
+from manager import Manager
 
 load_dotenv(find_dotenv())
 
@@ -19,18 +17,14 @@ manager = Manager()
 
 # setup
 def init():
-    print("Ensuring no VNC sessions are running on the machine...")
-    utils.kill_all_vnc_sessions()
-    utils.clear_and_remove_dir(Globals.VNC_FILES_DIR)
+    utils.clear_dir(Globals.VNC_FILES_DIR)
     utils.ensure_dir_exists(Globals.VNC_FILES_DIR)
-    Globals.SCHEDULER.start()
     manager.start()
 
 
 # teardown
 def terminate():
     manager.stop()
-    Globals.SCHEDULER.shutdown()
     utils.clear_and_remove_dir(Globals.VNC_FILES_DIR)
 
 
@@ -38,7 +32,7 @@ def terminate():
 def vnc_request():
     source_ip = request.environ['REMOTE_ADDR']
     source_port = request.environ['REMOTE_PORT']
-    url = manager.request_server_pair(source_ip, source_port, request.files)
+    url = manager.request_vnc_instance(source_ip, source_port, request.files)
 
     return {
                "success": True,
@@ -53,10 +47,8 @@ def vnc_request():
 if __name__ == '__main__':
     try:
         init()
-        app.run(port=8002)
+        app.run(port=5001)
         terminate()
     except BaseException as e:
         print("Error: ", e)
-        print("Killing any still-running VNC sessions...")
-        utils.kill_all_vnc_sessions()
         terminate()

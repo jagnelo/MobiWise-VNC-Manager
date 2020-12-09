@@ -3,20 +3,20 @@ import subprocess
 
 import psutil
 
-from src.globals import Globals
-from src.iserver import IServer, State
+from globals import Globals
+from iserver import IServer, State
 
 
 class Websockify(IServer):
-    def __init__(self, vnc_index, vnc_port):
+    def __init__(self):
         self.pid = Globals.NA
-        self.port = Globals.BASE_WEBSOCKIFY_PORT + vnc_index
-        self.vnc_port = vnc_port
+        self.port = Globals.WEBSOCKIFY_PORT
         self.state = State.Dead
 
     # start a websockify instance
     def start(self):
-        websockify = subprocess.Popen(["websockify", "localhost:%d" % self.port, "localhost:%d" % self.vnc_port])
+        websockify = subprocess.Popen(["websockify", "localhost:%d" % self.port, "--token-plugin", "TokenFile",
+                                       "--token-source", Globals.TOKENS_FILE_DIR])
         self.pid = websockify.pid
         self.state = State.Unavailable
         print("Started Websockify server listening on port %d (PID = %d)" % (self.port, self.pid))
@@ -33,24 +33,9 @@ class Websockify(IServer):
         self.state = State.Unavailable
         try:
             process = psutil.Process(self.pid)
-            for connection in process.connections():
-                if int(connection.laddr[1]) == self.port:
-                    if not connection.raddr and connection.status == psutil.CONN_LISTEN:
-                        self.state = State.Ready
-            for proc in psutil.process_iter(attrs={"pid", "ppid"}):
-                if proc.info["ppid"] == self.pid:
-                    child_process = psutil.Process(proc.info["pid"])
-                    raddr_vnc_port = False
-                    laddr_websockify_port = False
-                    for connection in child_process.connections():
-                        if connection.raddr and connection.status == psutil.CONN_ESTABLISHED:
-                            if connection.laddr[1] == self.port:
-                                laddr_websockify_port = True
-                            if connection.raddr[1] == self.vnc_port:
-                                raddr_vnc_port = True
-                    if laddr_websockify_port and raddr_vnc_port:
-                        self.state = State.Serving
-                        break
+            self.state = State.Ready
+            if process.connections():
+                self.state = State.Serving
         except BaseException as e:
             print("Error: ", e)
             self.state = State.Dead
@@ -61,5 +46,5 @@ class Websockify(IServer):
         return False
 
     def describe_state(self) -> str:
-        info = (self.pid, self.port, self.vnc_port, self.state)
-        return "PID = %d | Port = %d | VNC Port = %d | State = %s" % info
+        info = (self.pid, self.port, self.state)
+        return "PID = %d | Port = %d | State = %s" % info

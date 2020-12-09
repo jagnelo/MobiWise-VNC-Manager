@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 files/
+vnc_tokens
 
 # C extensions
 *.so

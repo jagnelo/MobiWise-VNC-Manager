@@ -1,8 +1,6 @@
 import os
 import shutil
 
-from src.globals import Globals
-
 
 # creates a given directory if it does not exist
 def ensure_dir_exists(path):
@@ -44,15 +42,4 @@ def modify_environment(changes: dict):
         env[key] = changes[key]
     return env
 
-
-# returns a unique job ID to use with a job scheduler
-def get_new_job_id():
-    Globals.JOB_ID += 1
-    return str(Globals.JOB_ID)
-
-
-# kill any VNC sessions that may be running
-def kill_all_vnc_sessions():
-    os.system("vncserver -kill :*")
-    print("All VNC sessions have been terminated")
 

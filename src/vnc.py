@@ -3,8 +3,9 @@ import subprocess
 
 import psutil
 
-from src.globals import Globals
-from src.iserver import IServer, State
+import utils
+from globals import Globals
+from iserver import IServer, State
 
 
 class VNC(IServer):
@@ -13,19 +14,42 @@ class VNC(IServer):
         self.pid = Globals.NA
         self.port = Globals.NA
         self.state = State.Dead
+        self.running_process = None
 
     # start a vnc instance
     def start(self):
         res = "%dx%d" % (Globals.VNC_RESOLUTION["width"], Globals.VNC_RESOLUTION["height"])
         self.display_index = VNC.get_available_display_index()
-        subprocess.Popen(["vncserver", ":%d" % self.display_index, "-noxstartup", "-geometry", res])
+        vnc = subprocess.Popen(["vncserver", ":%d" % self.display_index, "-noxstartup", "-geometry", res])
+        vnc.wait(timeout=5)
         self.state = State.Unavailable
+        path = self.get_files_dir()
+        utils.clear_dir(path)
+        utils.ensure_dir_exists(path)
         print("Started VNC server at index %d" % self.display_index)
+
+    # run a system command on this vnc instance
+    def run_command(self, command):
+        if self.state == State.Serving and not self.running_process:
+            command_array = [s.strip() for s in command.split(" ") if s.strip()]
+            env = utils.modify_environment({"DISPLAY": ":%d" % self.display_index})
+            self.running_process = subprocess.Popen(command_array, env=env, cwd=self.get_files_dir())
+            print("Running new command running on VNC server at index %d (cmd = %s)" % (self.display_index, command))
+
+    # stops a system command (if any) running on the vnc instance
+    def stop_command(self):
+        if self.running_process:
+            self.running_process.terminate()
+            self.running_process = None
+            utils.clear_dir(self.get_files_dir())
+            print("Stopped command running on VNC server at index %d" % self.display_index)
 
     # stop this vnc instance
     def stop(self):
+        self.stop_command()
         os.system("vncserver -kill :%d" % self.display_index)
         self.state = State.Dead
+        utils.clear_and_remove_dir(self.get_files_dir())
         print("Stopped VNC server at index %d" % self.display_index)
 
     # checks multiple external sources and correspondingly updates the state of this VNC instance
@@ -58,12 +82,22 @@ class VNC(IServer):
         return False
 
     def describe_state(self) -> str:
-        info = (self.display_index, self.pid, self.port, self.state)
-        return "Display index = %d | PID = %d | Port = %d | State = %s" % info
+        proc_info = "Running [PID = %d]" % self.running_process.pid if self.running_process else self.running_process
+        info = (self.display_index, self.pid, self.port, self.state, proc_info)
+        return "Display index = %d | PID = %d | Port = %d | State = %s | Running process = %s" % info
 
     # returns the path to the folder containing files used by this vnc instance
     def get_files_dir(self):
         return os.path.join(Globals.VNC_FILES_DIR, "%d" % self.display_index)
+
+    # saves files to the directory of this vnc instance
+    def store_files_to_dir(self, files):
+        path = self.get_files_dir()
+        utils.ensure_dir_exists(path)
+        utils.clear_dir(path)
+        for name in Globals.VNC_SUMO_FILES:
+            file = files[name]
+            file.save(os.path.join(path, "%s.xml" % name))
 
     # runs the "vncserver -list" command, formats its output, and returns it
     @staticmethod
