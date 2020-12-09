@@ -137,7 +137,7 @@ class Manager(IServer):
                 print("VNC ID = %s was requested by %s:%s and will be made available again after %d seconds if its"
                       " state does not change to %s" % print_info)
                 self.pool[vnc_id].store_files_to_dir(files)
-                return "ws://localhost:%d/%s" % (self.websockify.port, vnc_id) if self.websockify else None
+                return "http://193.137.203.16:/vnc?token=%s" % vnc_id
         return None
 
     # calculates the amount of serving instances above/at which to expand the pool size by pool_expand_size
