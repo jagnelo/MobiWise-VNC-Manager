@@ -14,7 +14,7 @@ class Globals:
                    "--route-files route-files.xml " \
                    "--device.emissions.probability 1.0 " \
                    "--collision.action warn " \
-                   "--window-size $(xdpyinfo | awk '/dimensions/{print $2}' | awk '{gsub(\"x\", \",\")} {print}') " \
+                   "--window-size 800,600 " \
                    "--window-pos 0,0"
     WEBSOCKIFY_PORT = 6080
     TOKENS_FILE_DIR = os.path.join("..", "vnc_tokens")
