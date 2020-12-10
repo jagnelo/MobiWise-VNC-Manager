@@ -16,7 +16,7 @@ class Websockify(IServer):
     # start a websockify instance
     def start(self):
         websockify = subprocess.Popen(["websockify", "localhost:%d" % self.port, "--token-plugin", "TokenFile",
-                                       "--token-source", Globals.TOKENS_FILE_DIR, "--log-file", "../verbose.log",
+                                       "--token-source", Globals.TOKENS_FILE_DIR, "--log-file", "../websockify.log",
                                        "--verbose"])
         self.pid = websockify.pid
         self.state = State.Unavailable
