@@ -81,12 +81,10 @@ class Manager(IServer):
                     print_info = (vnc_id, self.pool[vnc_id].state)
                     print("Removed VNC ID = %s from the requested list as its state is now %s" % print_info)
                 if self.pool[vnc_id].state in [State.Unavailable, State.Dead]:
-                    self.pool[vnc_id].stop_command()
                     self.requested.pop(vnc_id)
                     print_info = (vnc_id, self.pool[vnc_id].state)
                     print("Removed VNC ID = %s from the requested list as its state changed to %s" % print_info)
                 if delta_secs >= Globals.REQUEST_TIMEOUT_SECS:
-                    self.pool[vnc_id].stop_command()
                     self.requested.pop(vnc_id)
                     print_info = (vnc_id, self.pool[vnc_id].state, delta_secs)
                     print("Removed VNC ID = %s from the requested list as its state is still %s after %d seconds" % print_info)
@@ -100,6 +98,8 @@ class Manager(IServer):
                 count_unavailable += 1
             if self.pool[vnc_id].state == State.Dead:
                 dead_instances.append(vnc_id)
+            if not self.pool[vnc_id].state == State.Serving:
+                self.pool[vnc_id].stop_command()
         count_total = count_serving + count_requested
         if self.last_count != count_total or any(changes):
             self.last_count = count_total
