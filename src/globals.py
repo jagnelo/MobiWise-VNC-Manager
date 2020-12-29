@@ -22,3 +22,11 @@ class Globals:
     POOL_BASE_SIZE = 10
     POOL_EXPAND_SIZE = POOL_BASE_SIZE // 2
     REQUEST_TIMEOUT_SECS = 20
+
+    LOGS_OLD_NAME = "old logs"
+    LOGS_DIR = os.path.join("..", "logs")
+    LOGS_LEVEL_INFO = "INFO"
+    LOGS_LEVEL_DEBUG = "DEBUG"
+    LOGS_LEVEL_WARN = "WARN"
+    LOGS_LEVEL_ERROR = "ERROR"
+    LOGS_FILE_TYPE = "log"
