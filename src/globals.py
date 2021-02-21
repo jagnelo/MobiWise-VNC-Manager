@@ -31,4 +31,3 @@ class Globals:
     LOGS_LEVEL_ERROR = "ERROR"
     LOGS_FILE_TYPE = "log"
 
-    MOBIWISE_CERT_FILE = os.path.join("etc", "letsencrypt", "live", "mobiwise.dei.uc.pt", "cert.pem")
